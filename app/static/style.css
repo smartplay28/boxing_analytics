@@ -1,159 +1,140 @@
-/* Base Styles */
-body {
+/* =================================
+   Base Styles
+   ================================= */
+   body {
     font-family: 'Arial', sans-serif;
     margin: 0;
     padding: 0;
     background-color: #111;
     color: #fff;
-  }
-  
-  /* Grid Dashboard */
-  .dashboard {
+}
+
+/* =================================
+   Header
+   ================================= */
+.header {
+    text-align: center;
+    padding: 20px;
+    background-color: #222;
+    margin-bottom: 20px;
+}
+
+/* =================================
+   Main Content (Grid Layout)
+   ================================= */
+.main-content {
     display: grid;
-    grid-template-columns: 1fr 2fr 1fr;
-    grid-template-rows: auto 1fr 1fr;
-    gap: 10px;
-    height: 100vh;
-    padding: 10px;
-    box-sizing: border-box;
-  }
-  
-  /* Timer Section */
-  .timer-container {
-    grid-column: 1 / 4;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    background: #222;
+    grid-template-columns: 1fr 2fr;
+    /* Adjust as needed */
+    gap: 20px;
+}
+
+/* =================================
+   Player Statistics Section
+   ================================= */
+.player-stats {
+    grid-column: 1;
+    background-color: #222;
+    padding: 15px;
     border-radius: 10px;
-    padding: 12px;
-    margin-bottom: 10px;
-  }
-  
-  .timer {
-    font-size: 2rem;
+}
+
+.fighter-stats {
+    display: flex;
+    justify-content: space-around;
+    margin-bottom: 15px;
+}
+
+.fighter {
+    text-align: center;
+}
+
+.fighter-name {
+    font-size: 1.2rem;
     font-weight: bold;
     color: #0af;
-  }
-  
-  .round-indicator {
-    font-size: 1.2rem;
-    margin-right: 20px;
-    color: #ccc;
-  }
-  
-  /* Video Feed */
-  .video-feed {
-    grid-column: 2;
-    grid-row: 2 / 4;
-    background: #222;
-    border-radius: 10px;
-    overflow: hidden;
-    position: relative;
-  }
-  
-  /* Fighter Stats Panel */
-  .stats-panel {
-    background: #222;
-    border-radius: 10px;
-    padding: 15px;
-    overflow-y: auto;
-    max-height: 100%;
-  }
-  
-  .stats-panel h3 {
-    margin-top: 0;
-    color: #0af;
-    font-size: 1.4rem;
-  }
-  
-  .stat-row {
+    margin-bottom: 5px;
+}
+
+.stat-row {
     display: flex;
     justify-content: space-between;
     margin-bottom: 8px;
-  }
-  
-  .punch-count {
+}
+
+.punch-count {
     font-size: 1.5rem;
     font-weight: bold;
-  }
-  
-  .punch-bar {
-    height: 20px;
-    background: linear-gradient(90deg, #0af, #06c);
-    border-radius: 4px;
-    transition: width 0.3s ease;
-  }
-  
-  .fighter-stats {
-    display: flex;
-    justify-content: space-around;
-    gap: 20px;
-  }
-  
-  .fighter {
-    flex: 1;
+}
+
+.last-punch {
     text-align: center;
-  }
-  
-  .fighter-name {
-    font-weight: bold;
-    font-size: 1.2rem;
-    margin-bottom: 5px;
-  }
-  
-  /* Live Status Label */
-  .status-label {
-    position: fixed;
-    top: 20px;
-    left: 20px;
+    margin-top: 15px;
+}
+
+.last-punch h3 {
+    color: #0af;
+}
+
+/* =================================
+   Charts Section
+   ================================= */
+.charts {
+    grid-column: 2;
+    /* Span two columns if needed */
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+}
+
+.chart-container {
+    background-color: #222;
+    padding: 15px;
+    border-radius: 10px;
+}
+
+.chart-container h3 {
+    text-align: center;
+    color: #0af;
+    margin-bottom: 10px;
+}
+
+canvas {
+    background-color: #fff;
+    border-radius: 8px;
+}
+
+/* =================================
+   Status Label
+   ================================= */
+.status-label {
+    position: absolute;
+    top: 10px;
+    left: 10px;
     background: rgba(255, 0, 0, 0.8);
     padding: 6px 12px;
     border-radius: 4px;
     font-weight: bold;
     z-index: 99;
     font-size: 0.9rem;
-  }
-  
-  /* Controls */
-  .controls {
-    position: absolute;
-    bottom: 20px;
-    right: 20px;
-    display: flex;
-    gap: 10px;
-  }
-  
-  .button {
-    background: #0af;
-    border: none;
-    color: white;
-    padding: 10px 15px;
-    border-radius: 6px;
-    cursor: pointer;
-    font-weight: bold;
-    transition: background 0.3s ease;
-  }
-  
-  .button:hover {
-    background: #09d;
-  }
-  
-  /* Responsive Adjustments */
-  @media (max-width: 768px) {
-    .dashboard {
-      display: flex;
-      flex-direction: column;
+}
+
+/* =================================
+   Responsive Design
+   ================================= */
+@media (max-width: 768px) {
+    .main-content {
+        grid-template-columns: 1fr;
+        /* Stack on smaller screens */
     }
-  
+
+    .player-stats,
+    .charts {
+        grid-column: 1;
+    }
+
     .fighter-stats {
-      flex-direction: column;
+        flex-direction: column;
+        /* Stack player stats */
     }
-  
-    .controls {
-      position: static;
-      justify-content: center;
-      margin-top: 20px;
-    }
-  }
-  
+}

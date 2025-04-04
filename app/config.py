@@ -1,6 +1,11 @@
 import os
+import logging
 
 class Config:
+    """
+    Configuration settings for the Flask application.
+    """
+
     # Database configuration
     DATABASE_URL = os.environ.get('DATABASE_URL', 'sqlite:///fight_analytics.db')
     if DATABASE_URL.startswith("postgres://"):
@@ -17,4 +22,8 @@ class Config:
     os.makedirs(VIDEO_STORAGE_PATH, exist_ok=True)  # Ensure folder exists
 
     CAMERA_IDS = os.environ.get('CAMERA_IDS', '')
-    CAMERA_IDS = [int(x) for x in CAMERA_IDS.split(',') if x.isdigit()]
+    try:
+        CAMERA_IDS = [int(x) for x in CAMERA_IDS.split(',') if x.isdigit()]
+    except ValueError:
+        logging.warning("Invalid CAMERA_IDS format. Using empty list.")
+        CAMERA_IDS = []

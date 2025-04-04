@@ -1,10 +1,25 @@
 from flask import Flask
 from app.config import Config
+import logging
 
 def create_app(config_object=Config):
-    # Create and configure the app
+    """
+    Creates and configures the Flask application.
+
+    Args:
+        config_object: Configuration object to use for the app.
+
+    Returns:
+        The Flask application instance.
+    """
+
     app = Flask(__name__)
     app.config.from_object(config_object)
+
+    # Initialize logging
+    logging.basicConfig(level=logging.INFO,
+                        format='%(asctime)s - %(levelname)s - %(message)s')
+    logging.info("Creating Flask app")
 
     # Import and initialize database
     from app.models.models import db
@@ -22,7 +37,7 @@ def create_app(config_object=Config):
         from sqlalchemy import inspect
         inspector = inspect(db.engine)
         if not inspector.get_table_names():
-            print("Creating database tables...")
+            logging.info("Creating database tables")
             db.create_all()
 
     return app

@@ -1,95 +1,96 @@
-# app/services/camera.py
-
 import cv2
-import threading
+import asyncio
 import time
-import queue
 from app.services.punch_detector import PunchDetector
-from app.utils.pose_utils import extract_keypoints
-from app.utils.model_loader import initialize_pose_model
+from app.utils.pose_utils import extract_keypoints, initialize_pose_model
 
-class VideoGet:
+class AsyncVideoGet:
     def __init__(self, src=0):
-        self.stream = cv2.VideoCapture(src, cv2.CAP_DSHOW)
+        self.src = src
+        self.stream = None
+        self.stopped = True
+        self.frame = None
+
+    async def start(self):
+        self.stream = cv2.VideoCapture(self.src, cv2.CAP_DSHOW)
         self.stream.set(cv2.CAP_PROP_FRAME_WIDTH, 480)
         self.stream.set(cv2.CAP_PROP_FRAME_HEIGHT, 360)
         self.stream.set(cv2.CAP_PROP_FPS, 15)
         self.stream.set(cv2.CAP_PROP_BUFFERSIZE, 1)
         self.stopped = False
-        self.frame = None
+        await self.get()  # Start the frame grabbing
 
-    def start(self):
-        threading.Thread(target=self.get, daemon=True).start()
-        return self
-
-    def get(self):
+    async def get(self):
         while not self.stopped:
             ret, frame = self.stream.read()
             if ret:
                 self.frame = frame
+            await asyncio.sleep(0.001)  # Yield to the event loop
 
-    def stop(self):
+    async def stop(self):
         self.stopped = True
-        self.stream.release()
+        if self.stream:
+            self.stream.release()
 
-class InferenceProcessor:
-    def __init__(self, frame_queue, result_queue, model, skip_frames=2):
-        self.frame_queue = frame_queue
-        self.result_queue = result_queue
+class AsyncInferenceProcessor:
+    def __init__(self, video_get, model, skip_frames=1):
+        self.video_get = video_get
         self.stopped = False
         self.skip_frames = skip_frames
         self.frame_count = 0
         self.model = model
+        self.latest_result = None
 
-    def start(self):
-        threading.Thread(target=self.process, daemon=True).start()
-        return self
+    async def start(self):
+        asyncio.create_task(self.process())
 
-    def process(self):
+    async def process(self):
         while not self.stopped:
-            if not self.frame_queue.empty():
-                timestamp, frame = self.frame_queue.get()
+            if self.video_get.frame is not None:
                 self.frame_count += 1
-
                 if self.frame_count % self.skip_frames == 0:
-                    results = self.model(frame, verbose=False)[0]
-                    self.result_queue.put((timestamp, frame, results))
-            else:
-                time.sleep(0.001)
+                    results = self.model(self.video_get.frame, verbose=False)[0]
+                    self.latest_result = (time.time(), self.video_get.frame.copy(), results)
+            await asyncio.sleep(0.001)
 
-    def stop(self):
+    def get_latest_result(self):
+        return self.latest_result
+
+    async def stop(self):
         self.stopped = True
 
-class SingleCameraRunner:
+class AsyncSingleCameraRunner:
     def __init__(self, camera_id=0):
-        self.model, self.device = initialize_pose_model()
-        self.video_get = VideoGet(camera_id).start()
-        self.frame_queue = queue.Queue(maxsize=2)
-        self.result_queue = queue.Queue(maxsize=2)
-        self.processor = InferenceProcessor(self.frame_queue, self.result_queue, self.model, skip_frames=1).start()
+        self.camera_id = camera_id
+        self.video_get = AsyncVideoGet(camera_id)
+        self.processor = None
+        self.model, _ = initialize_pose_model()  # Initialize model once
         self.detector = PunchDetector()
         self.running = False
 
-    def start(self):
+    async def start(self):
         self.running = True
-        threading.Thread(target=self._gather_frames, daemon=True).start()
+        try:
+            await self.video_get.start()
+            self.processor = AsyncInferenceProcessor(self.video_get, self.model).start()
+        except Exception as e:
+            print(f"Error starting camera {self.camera_id}: {e}")
+            await self.stop()  # Ensure resources are cleaned up
+            return False
+        return True
 
-    def _gather_frames(self):
-        while self.running:
-            if self.video_get.frame is not None:
-                timestamp = time.time()
-                if not self.frame_queue.full():
-                    self.frame_queue.put((timestamp, self.video_get.frame.copy()))
-            time.sleep(0.001)
+    async def stop(self):
+        self.running = False
+        if self.processor:
+            self.processor.stopped = True  # Signal processor to stop
+        if self.video_get:
+            await self.video_get.stop()
 
     def get_latest_result(self):
-        if not self.result_queue.empty():
-            timestamp, frame, results = self.result_queue.get()
-            keypoints = extract_keypoints(results) if results else []
-            return timestamp, frame, keypoints
+        if self.processor:
+            result = self.processor.get_latest_result()
+            if result:
+                timestamp, frame, results = result
+                keypoints = extract_keypoints(results) if results else []
+                return timestamp, frame, keypoints
         return None
-
-    def stop(self):
-        self.running = False
-        self.video_get.stop()
-        self.processor.stop()

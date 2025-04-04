@@ -4,30 +4,35 @@ import time
 
 class PunchDetector:
     def __init__(self):
-        self.prev_positions = {}  # person_id -> deque of wrist positions
-        self.prev_speeds = {}     # person_id -> deque of speeds
-        self.last_punch_time = {} # person_id -> timestamp of last punch
-        self.cooldown = 0.5       # seconds between punches
+        self.prev_positions = {}
+        self.prev_velocities = {}  # Store velocity history
+        self.prev_accelerations = {}  # Store acceleration history
+        self.last_punch_time = {}
+        self.cooldown = 0.5
         
-        # Thresholds
-        self.speed_threshold = 0.7    # m/s, minimum speed to count as a punch
-        self.direction_threshold = 30  # degrees, max deviation from expected angle
+        # Thresholds (adjust these based on your data)
+        self.speed_threshold = 0.7
+        self.velocity_threshold = 0.5  # Example threshold for velocity magnitude
+        self.acceleration_threshold = 0.3  # Example threshold for acceleration magnitude
+        self.direction_threshold = 30
         
     def detect_punch_type(self, keypoints, person_id, timestamp):
         """Detect if a punch was thrown and classify its type."""
-        # Create unique IDs for left and right hands
+
         right_id = f"{person_id}_right"
         left_id = f"{person_id}_left"
         
         # Initialize tracking for this person if not already done
         if right_id not in self.prev_positions:
             self.prev_positions[right_id] = deque(maxlen=10)
-            self.prev_speeds[right_id] = deque(maxlen=5)
+            self.prev_velocities[right_id] = deque(maxlen=5)
+            self.prev_accelerations[right_id] = deque(maxlen=3)
             self.last_punch_time[person_id] = 0
             
         if left_id not in self.prev_positions:
             self.prev_positions[left_id] = deque(maxlen=10)
-            self.prev_speeds[left_id] = deque(maxlen=5)
+            self.prev_velocities[left_id] = deque(maxlen=5)
+            self.prev_accelerations[left_id] = deque(maxlen=3)
             
         # Check cooldown
         if timestamp - self.last_punch_time.get(person_id, 0) < self.cooldown:
@@ -42,31 +47,33 @@ class PunchDetector:
         if not all(k in keypoints_dict and keypoints_dict[k][2] > 0.3 for k in required):
             return None
             
-        # Calculate punch speed and direction for both hands
-        right_punch = self._analyze_limb(keypoints_dict, 'right', right_id, timestamp)
-        left_punch = self._analyze_limb(keypoints_dict, 'left', left_id, timestamp)
+        # Calculate punch data for both hands
+        right_punch_data = self._analyze_limb(keypoints_dict, 'right', right_id, timestamp)
+        left_punch_data = self._analyze_limb(keypoints_dict, 'left', left_id, timestamp)
         
         # Determine which punch (if any) was thrown
-        if right_punch and left_punch:
-            # Both hands moved - use the faster one
-            if right_punch['speed'] > left_punch['speed']:
+        if right_punch_data and left_punch_data:
+            # Both hands moved - use the one with highest combined motion
+            right_motion = right_punch_data['speed'] + np.linalg.norm(right_punch_data['velocity']) + np.linalg.norm(right_punch_data['acceleration'])
+            left_motion = left_punch_data['speed'] + np.linalg.norm(left_punch_data['velocity']) + np.linalg.norm(left_punch_data['acceleration'])
+            if right_motion > left_motion:
                 self.last_punch_time[person_id] = timestamp
-                return right_punch
+                return right_punch_data
             else:
                 self.last_punch_time[person_id] = timestamp
-                return left_punch
-        elif right_punch:
+                return left_punch_data
+        elif right_punch_data:
             self.last_punch_time[person_id] = timestamp
-            return right_punch
-        elif left_punch:
+            return right_punch_data
+        elif left_punch_data:
             self.last_punch_time[person_id] = timestamp
-            return left_punch
+            return left_punch_data
             
         return None
         
     def _analyze_limb(self, keypoints, side, tracking_id, timestamp):
         """Analyze a single arm to detect punches."""
-        # Get relevant keypoints
+
         shoulder = keypoints[f'{side}_shoulder']
         elbow = keypoints[f'{side}_elbow']
         wrist = keypoints[f'{side}_wrist']
@@ -76,11 +83,11 @@ class PunchDetector:
             return None
             
         # Calculate wrist position and store in history
-        position = wrist[:2]  # x, y
+        position = wrist[:2]
         position_history = self.prev_positions[tracking_id]
         position_history.append((position, timestamp))
         
-        # Need at least 2 frames to calculate speed
+        # Need at least 2 frames to calculate speed, velocity, acceleration
         if len(position_history) < 2:
             return None
             
@@ -94,32 +101,47 @@ class PunchDetector:
         distance = np.linalg.norm(np.array(pos2) - np.array(pos1))
         speed = distance / dt
         
-        speed_history = self.prev_speeds[tracking_id]
-        speed_history.append(speed)
+        # Calculate velocity
+        velocity = (pos2[0] - pos1[0]) / dt, (pos2[1] - pos1[1]) / dt
+        velocity_history = self.prev_velocities[tracking_id]
+        velocity_history.append(velocity)
         
-        # Calculate average speed
-        avg_speed = sum(speed_history) / len(speed_history)
+        # Calculate acceleration (if enough data)
+        acceleration = (0, 0) # Initialize acceleration
+        if len(velocity_history) >= 2:
+            vel1 = velocity_history[-2]
+            vel2 = velocity_history[-1]
+            acceleration = (vel2[0] - vel1[0]) / dt, (vel2[1] - vel1[1]) / dt
+        acceleration_history = self.prev_accelerations[tracking_id]
+        acceleration_history.append(acceleration)
         
-        # Check if speed exceeds threshold
-        if avg_speed < self.speed_threshold:
+        # Calculate average speed, velocity, acceleration
+        avg_speed = np.mean(speed)
+        avg_velocity = np.mean(velocity_history, axis=0) if velocity_history else (0, 0)
+        avg_acceleration = np.mean(acceleration_history, axis=0) if acceleration_history else (0, 0)
+        
+        # Check if motion exceeds thresholds
+        if avg_speed < self.speed_threshold or np.linalg.norm(avg_velocity) < self.velocity_threshold or np.linalg.norm(avg_acceleration) < self.acceleration_threshold:
             return None
             
-        # Classify punch type based on arm position and movement
-        punch_type = self._classify_punch(keypoints, side, position, position_history)
+        # Classify punch type
+        punch_type = self._classify_punch(keypoints, side, position, position_history, avg_velocity, avg_acceleration)
         
         if punch_type:
             return {
                 'type': punch_type,
                 'timestamp': timestamp,
                 'speed': avg_speed,
-                'power': avg_speed * 1.2  # Simple power estimation
+                'velocity': avg_velocity,
+                'acceleration': avg_acceleration,
+                'power': avg_speed * 1.2
             }
             
         return None
         
-    def _classify_punch(self, keypoints, side, position, position_history):
+    def _classify_punch(self, keypoints, side, position, position_history, velocity, acceleration):
         """Classify the type of punch based on trajectory and arm position."""
-        # Get previous position to determine direction
+
         if len(position_history) < 2:
             return None
             
@@ -128,10 +150,9 @@ class PunchDetector:
         
         # Calculate direction
         direction = np.array(current_pos) - np.array(prev_pos)
-        if np.linalg.norm(direction) < 5:  # Minimum movement threshold
+        if np.linalg.norm(direction) < 5:
             return None
             
-        # Normalize direction vector
         direction = direction / np.linalg.norm(direction)
         
         # Get arm angle
@@ -145,19 +166,27 @@ class PunchDetector:
         # Classify based on side, direction and angle
         prefix = "Left" if side == "left" else "Right"
         
-        # Check for uppercut - vertical movement
-        if direction[1] < -0.7:  # Moving upward (screen coordinates)
+        # Check for uppercut - vertical movement and upward acceleration
+        if direction[1] < -0.7 and acceleration[1] < -0.2:  # Adjust acceleration threshold
             return f"Uppercut {prefix}"
             
-        # Check for straight - arm extended
-        if elbow_angle > 140:
+        # Check for straight - arm extended and linear movement
+        if elbow_angle > 140 and abs(direction[0]) > 0.7 and abs(acceleration[0]) < 0.2:  # Adjust direction and acceleration
             return f"Straight {prefix}"
             
-        # Default to hook
-        return f"Hook {prefix}"
+        # Check for hook - bent arm and curved trajectory
+        if elbow_angle < 90 and abs(direction[0]) > 0.3 and abs(direction[1]) > 0.3:  # Adjust direction thresholds
+            return f"Hook {prefix}"
+            
+        # Default to jab (quick, straight punch)
+        if elbow_angle > 120 and abs(direction[0]) > 0.7 and np.linalg.norm(velocity) > self.velocity_threshold:
+            return f"Jab {prefix}"
+        
+        return f"Other {prefix}"
         
     def _calculate_angle(self, a, b, c):
         """Calculate angle between three points in degrees."""
+
         ba = np.array(a) - np.array(b)
         bc = np.array(c) - np.array(b)
         
@@ -167,6 +196,7 @@ class PunchDetector:
         
     def _get_named_keypoints(self, keypoints):
         """Convert numeric keypoints to named keypoints."""
+
         return {
             'nose': keypoints[0],
             'right_shoulder': keypoints[5],

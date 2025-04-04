@@ -1,136 +1,63 @@
-import cv2
 import numpy as np
-import torch
-from ultralytics import YOLO
 from collections import deque
 
-# =========================
-# Model Initialization
-# =========================
+class PoseUtils:
+    def __init__(self):
+        self.prev_positions = {}
+        self.positions_buffer = {}  # Store position history for smoother calculations
+        self.buffer_length = 5  # Number of frames to keep in the buffer
 
-def initialize_pose_model(model_name='yolov8n-pose.pt', device=None):
-    """
-    Loads the YOLOv8 pose model.
-    """
-    model = YOLO(model_name)
-    model.conf = 0.25
-    model.iou = 0.45
-    model.agnostic = True
+    @staticmethod
+    def calculate_angle(p1, p2, p3):
+        """Calculates the angle between three points."""
+        if any(p is None for p in [p1, p2, p3]):
+            return 0  # Or handle this more gracefully
 
-    if device is None:
-        device = "cuda" if torch.cuda.is_available() else "cpu"
-    model.to(device)
+        v1 = np.array([p1[0] - p2[0], p1[1] - p2[1]])
+        v2 = np.array([p3[0] - p2[0], p3[1] - p2[1]])
 
-    dummy_frame = np.zeros((360, 480, 3), dtype=np.uint8)
-    _ = model(dummy_frame, verbose=False)
+        norm_v1 = np.linalg.norm(v1)
+        norm_v2 = np.linalg.norm(v2)
 
-    return model, device
+        if norm_v1 == 0 or norm_v2 == 0:
+            return 0
 
-# =========================
-# Pose Detection
-# =========================
+        dot_product = np.dot(v1, v2)
+        cosine_angle = dot_product / (norm_v1 * norm_v2)
+        angle = np.degrees(np.arccos(np.clip(cosine_angle, -1.0, 1.0)))
+        return angle
 
-def detect_pose(frame, model):
-    """
-    Runs pose detection on a frame.
-    """
-    if torch.cuda.is_available():
-        with torch.cuda.amp.autocast():
-            results = model(frame, verbose=False)
-    else:
-        results = model(frame, verbose=False)
-    return results
+    def calculate_joint_speed(self, joint_name, position, frame_id):
+        """Calculates the speed, velocity, and acceleration of a joint."""
 
-def extract_keypoints(results):
-    """
-    Extracts keypoints from model results.
-    """
-    keypoints_list = []
-    if results and hasattr(results[0], 'keypoints') and results[0].keypoints is not None:
-        keypoints = results[0].keypoints.data
-        for idx, kpt in enumerate(keypoints):
-            keypoints_list.append({
-                'person_id': idx,
-                'keypoints': kpt.cpu().numpy()
-            })
-    return keypoints_list
+        if joint_name not in self.positions_buffer:
+            self.positions_buffer[joint_name] = deque(maxlen=self.buffer_length)
+        
+        self.positions_buffer[joint_name].append((frame_id, position))
+        
+        if len(self.positions_buffer[joint_name]) < 2:
+            return 0, (0, 0), (0, 0)  # Not enough data yet
 
-# =========================
-# Drawing Utilities
-# =========================
-
-def draw_pose(frame, keypoints, reduced=True):
-    """
-    Draws selected keypoints on the frame.
-    """
-    if reduced:
-        for person in keypoints:
-            kpt_np = person['keypoints']
-            for i in [5, 6, 7, 8, 9, 10]:
-                if i < len(kpt_np) and kpt_np[i][2] > 0.3:
-                    cv2.circle(frame, 
-                               (int(kpt_np[i][0]), int(kpt_np[i][1])), 
-                               5, (0, 255, 0), -1)
-    return frame
-
-# =========================
-# Angle Calculations
-# =========================
-
-def calculate_angle(a, b, c):
-    a, b, c = np.array(a[:2]), np.array(b[:2]), np.array(c[:2])
-    ab = a - b
-    cb = c - b
-    cosine_angle = np.dot(ab, cb) / (np.linalg.norm(ab) * np.linalg.norm(cb) + 1e-6)
-    angle = np.arccos(np.clip(cosine_angle, -1.0, 1.0))
-    return np.degrees(angle)
-
-def calculate_limb_angle(keypoints, limb='right_arm'):
-    """
-    Calculates elbow angle for left or right arm.
-    """
-    if keypoints is None or len(keypoints) < 13:
-        return None
-
-    if limb == 'right_arm':
-        shoulder, elbow, wrist = keypoints[5], keypoints[7], keypoints[9]
-    elif limb == 'left_arm':
-        shoulder, elbow, wrist = keypoints[6], keypoints[8], keypoints[10]
-    else:
-        return None
-
-    if min(shoulder[2], elbow[2], wrist[2]) < 0.3:
-        return None
-
-    return calculate_angle(shoulder, elbow, wrist)
-
-# =========================
-# Named Keypoints
-# =========================
-
-def get_named_keypoints(keypoints):
-    return {
-        'nose': keypoints[0],
-        'right_shoulder': keypoints[5],
-        'left_shoulder': keypoints[6],
-        'right_elbow': keypoints[7],
-        'left_elbow': keypoints[8],
-        'right_wrist': keypoints[9],
-        'left_wrist': keypoints[10],
-        'right_hip': keypoints[11],
-        'left_hip': keypoints[12],
-    }
-
-# =========================
-# Smoothing
-# =========================
-
-class KeypointSmoother:
-    def __init__(self, maxlen=5):
-        self.buffer = deque(maxlen=maxlen)
-
-    def update(self, keypoints):
-        if keypoints is not None:
-            self.buffer.append(keypoints)
-            return np.mean(self.buffer, axis=0)
-        return None
+        
+        (prev_frame_id, prev_position) = self.positions_buffer[joint_name][0]
+        delta_time = frame_id - prev_frame_id
+        
+        if delta_time == 0:
+            return 0, (0, 0), (0, 0)
+        
+        delta_x = position[0] - prev_position[0]
+        delta_y = position[1] - prev_position[1]
+        
+        velocity = (delta_x / delta_time, delta_y / delta_time)
+        speed = np.linalg.norm(velocity)
+        
+        acceleration = (0, 0)  # Initialize acceleration
+        if len(self.positions_buffer[joint_name]) > 2:
+            (prev_prev_frame_id, prev_prev_position) = self.positions_buffer[joint_name][1]
+            prev_delta_time = prev_frame_id - prev_prev_frame_id
+            if prev_delta_time != 0:
+                prev_velocity_x = (prev_position[0] - prev_prev_position[0]) / prev_delta_time
+                prev_velocity_y = (prev_position[1] - prev_prev_position[1]) / prev_delta_time
+                acceleration = ((velocity[0] - prev_velocity_x) / delta_time, (velocity[1] - prev_velocity_y) / delta_time)
+        
+        return speed, velocity, acceleration

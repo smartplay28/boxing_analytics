@@ -1,5 +1,7 @@
-// Punch Types
-const punchTypes = [
+// =================================
+//  Constants
+// =================================
+const PUNCH_TYPES = [
   "Straight Left",
   "Straight Right",
   "Hook Left",
@@ -7,102 +9,67 @@ const punchTypes = [
   "Uppercut"
 ];
 
-// Players
-let player1 = createPlayer("Player 1");
-let player2 = createPlayer("Player 2");
-
+// =================================
+//  Player Objects
+// =================================
 function createPlayer(name) {
   return {
-    name,
-    punches: Object.fromEntries(punchTypes.map(p => [p, 0])),
-    total: 0,
-    hits: 0
+      name,
+      punches: Object.fromEntries(PUNCH_TYPES.map(p => [p, 0])),
+      total: 0,
+      hits: 0
   };
 }
 
-// ✅ Socket.IO Setup
+const player1 = createPlayer("Player 1");
+const player2 = createPlayer("Player 2");
+
+// =================================
+//  Socket.IO Setup
+// =================================
 const socket = io(window.location.origin);
 
-// Ask backend for latest state on load
-socket.emit('get_updates');
-
-// 🔁 Listen for punch updates
-socket.on('punch_data', (data) => {
-  const punch = data.punch_type;
-  const id = data.fighter_id % 2 === 0 ? 2 : 1;
-  const player = id === 1 ? player1 : player2;
-
-  if (player.punches[punch] !== undefined) {
-    player.punches[punch]++;
-    player.total++;
-    if (data.hit_landed) player.hits++;
-
-    updateStats(player1, "1");
-    updateStats(player2, "2");
-    updateLastPunch(punch);
-    updateLineChart();
-    updateBarChart();
-  }
+// Event Handlers
+socket.on('connect', () => {
+  console.log('Connected to server');
+  updateStatusLabel('CONNECTED', 'green');
+  socket.emit('get_updates'); // Request initial data
 });
 
-// ✅ Update Stats in UI
-function updateStats(player, id) {
-  document.getElementById(`totalPunches${id}`).textContent = player.total;
-  document.getElementById(`accuracy${id}`).textContent = player.total
-    ? `${((player.hits / player.total) * 100).toFixed(1)}%`
-    : "0%";
+socket.on('disconnect', () => {
+  console.log('Disconnected from server');
+  updateStatusLabel('DISCONNECTED', 'red');
+});
+
+socket.on('connect_error', (error) => {
+  console.error('Connection Error:', error);
+  updateStatusLabel('CONNECTION ERROR', 'red');
+});
+
+// =================================
+//  UI Updates
+// =================================
+function updateStatusLabel(text, color) {
+  const statusLabel = document.getElementById('statusLabel');
+  statusLabel.textContent = text;
+  statusLabel.style.backgroundColor = color;
 }
 
-// ✅ Last Punch Display
-function updateLastPunch(punch) {
+function updatePlayerStats(player, playerId) {
+  document.getElementById(`totalPunches${playerId}`).textContent = player.total;
+  document.getElementById(`accuracy${playerId}`).textContent = player.total
+      ? `${((player.hits / player.total) * 100).toFixed(1)}%`
+      : "0%";
+}
+
+function updateLastPunchDisplay(punch) {
   document.getElementById("lastPunch").textContent = punch;
 }
 
-// ✅ Charts Setup
-const lineChart = new Chart(document.getElementById("lineChart").getContext("2d"), {
-  type: "line",
-  data: {
-    labels: [],
-    datasets: [
-      { label: "Player 1", data: [], borderColor: "#ff6384", fill: false },
-      { label: "Player 2", data: [], borderColor: "#36a2eb", fill: false }
-    ]
-  },
-  options: {
-    responsive: true,
-    animation: false,
-    scales: {
-      y: {
-        beginAtZero: true,
-        ticks: { stepSize: 1 }
-      }
-    }
-  }
-});
-
-const barChart = new Chart(document.getElementById("barChart").getContext("2d"), {
-  type: "bar",
-  data: {
-    labels: punchTypes,
-    datasets: [
-      { label: "Player 1", data: [], backgroundColor: "#ff6384" },
-      { label: "Player 2", data: [], backgroundColor: "#36a2eb" }
-    ]
-  },
-  options: {
-    responsive: true,
-    animation: false,
-    scales: {
-      y: {
-        beginAtZero: true,
-        ticks: { stepSize: 1 }
-      }
-    }
-  }
-});
-
-// ✅ Update Chart Data
-function updateLineChart() {
+// =================================
+//  Chart Updates
+// =================================
+function updateLineChartData() {
   const time = new Date().toLocaleTimeString();
   lineChart.data.labels.push(time);
   lineChart.data.datasets[0].data.push(player1.total);
@@ -110,16 +77,81 @@ function updateLineChart() {
 
   // Limit to last 10 entries
   if (lineChart.data.labels.length > 10) {
-    lineChart.data.labels.shift();
-    lineChart.data.datasets[0].data.shift();
-    lineChart.data.datasets[1].data.shift();
+      lineChart.data.labels.shift();
+      lineChart.data.datasets[0].data.shift();
+      lineChart.data.datasets[1].data.shift();
   }
-
   lineChart.update();
 }
 
-function updateBarChart() {
-  barChart.data.datasets[0].data = punchTypes.map(p => player1.punches[p]);
-  barChart.data.datasets[1].data = punchTypes.map(p => player2.punches[p]);
+function updateBarChartData() {
+  barChart.data.datasets[0].data = PUNCH_TYPES.map(p => player1.punches[p]);
+  barChart.data.datasets[1].data = PUNCH_TYPES.map(p => player2.punches[p]);
   barChart.update();
 }
+
+// =================================
+//  Chart Initialization
+// =================================
+const lineChart = new Chart(document.getElementById("lineChart").getContext("2d"), {
+  type: "line",
+  data: {
+      labels: [],
+      datasets: [
+          { label: "Player 1", data: [], borderColor: "#ff6384", fill: false },
+          { label: "Player 2", data: [], borderColor: "#36a2eb", fill: false }
+      ]
+  },
+  options: {
+      responsive: true,
+      animation: false,
+      scales: {
+          y: {
+              beginAtZero: true,
+              ticks: { stepSize: 1 }
+          }
+      }
+  }
+});
+
+const barChart = new Chart(document.getElementById("barChart").getContext("2d"), {
+  type: "bar",
+  data: {
+      labels: PUNCH_TYPES,
+      datasets: [
+          { label: "Player 1", data: [], backgroundColor: "#ff6384" },
+          { label: "Player 2", data: [], backgroundColor: "#36a2eb" }
+      ]
+  },
+  options: {
+      responsive: true,
+      animation: false,
+      scales: {
+          y: {
+              beginAtZero: true,
+              ticks: { stepSize: 1 }
+          }
+      }
+  }
+});
+
+// =================================
+//  Socket.IO Message Handling
+// =================================
+socket.on('punch_data', (data) => {
+  const punch = data.punch_type;
+  const playerId = data.fighter_id % 2 === 0 ? 2 : 1;
+  const player = playerId === 1 ? player1 : player2;
+
+  if (player.punches[punch] !== undefined) {
+      player.punches[punch]++;
+      player.total++;
+      if (data.hit_landed) player.hits++;
+
+      updatePlayerStats(player1, "1");
+      updatePlayerStats(player2, "2");
+      updateLastPunchDisplay(punch);
+      updateLineChartData();
+      updateBarChartData();
+  }
+});

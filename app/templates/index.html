@@ -1,115 +1,70 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
-  <meta charset="UTF-8">
-  <title>Punch Detection Dashboard</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta charset="UTF-8">
+    <title>Boxing Analytics Dashboard</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-  <!-- Chart.js & Socket.IO -->
-  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-  <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
 
-  <!-- Style -->
-  <style>
-    body {
-      font-family: 'Arial', sans-serif;
-      margin: 0;
-      padding: 20px;
-      background-color: #111;
-      color: #fff;
-    }
-
-    h1 {
-      text-align: center;
-      margin-bottom: 10px;
-    }
-
-    .status-label {
-      position: fixed;
-      top: 20px;
-      left: 20px;
-      padding: 5px 12px;
-      font-weight: bold;
-      border-radius: 4px;
-      color: white;
-      background: rgba(255, 0, 0, 0.8);
-      z-index: 10;
-    }
-
-    .stats {
-      display: flex;
-      justify-content: space-around;
-      margin: 20px 0;
-      flex-wrap: wrap;
-    }
-
-    .stats div {
-      background-color: #222;
-      padding: 15px 20px;
-      border-radius: 8px;
-      min-width: 200px;
-      text-align: center;
-    }
-
-    .stats h3 {
-      color: #0af;
-      margin-bottom: 5px;
-    }
-
-    .chart-container {
-      width: 100%;
-      max-width: 900px;
-      margin: 20px auto;
-      background: #222;
-      padding: 15px;
-      border-radius: 10px;
-    }
-
-    canvas {
-      background-color: #fff;
-      border-radius: 8px;
-    }
-  </style>
+    <link rel="stylesheet" href="/static/style.css">
 </head>
 
 <body>
 
-  <!-- LIVE STATUS -->
-  <div id="statusLabel" class="status-label">CONNECTING...</div>
+    <header class="header">
+        <h1>Boxing Analytics Dashboard 🥊</h1>
+        <div id="statusLabel" class="status-label" role="alert">CONNECTING...</div>
+    </header>
 
-  <h1>Real-Time Boxing Punch Dashboard 🥊</h1>
+    <main class="main-content">
+        <section class="player-stats" aria-label="Player Statistics">
+            <div class="fighter-stats">
+                <div class="fighter">
+                    <h2 class="fighter-name">Player 1</h2>
+                    <div class="stat-row">
+                        <span>Total Punches:</span>
+                        <span id="totalPunches1" class="punch-count">0</span>
+                    </div>
+                    <div class="stat-row">
+                        <span>Accuracy:</span>
+                        <span id="accuracy1">0%</span>
+                    </div>
+                </div>
+                <div class="fighter">
+                    <h2 class="fighter-name">Player 2</h2>
+                    <div class="stat-row">
+                        <span>Total Punches:</span>
+                        <span id="totalPunches2" class="punch-count">0</span>
+                    </div>
+                    <div class="stat-row">
+                        <span>Accuracy:</span>
+                        <span id="accuracy2">0%</span>
+                    </div>
+                </div>
+            </div>
+            <div class="last-punch">
+                <h3>Last Punch</h3>
+                <p id="lastPunch">None</p>
+            </div>
+        </section>
 
-  <!-- Player Stats -->
-  <section class="stats">
-    <div>
-      <h3>Player 1</h3>
-      <p>Total Punches: <span id="totalPunches1">0</span></p>
-      <p>Accuracy: <span id="accuracy1">0%</span></p>
-    </div>
-    <div>
-      <h3>Player 2</h3>
-      <p>Total Punches: <span id="totalPunches2">0</span></p>
-      <p>Accuracy: <span id="accuracy2">0%</span></p>
-    </div>
-    <div>
-      <h3>Last Punch</h3>
-      <p id="lastPunch">None</p>
-    </div>
-  </section>
+        <section class="charts" aria-label="Punch Charts">
+            <div class="chart-container">
+                <h3>Punch Activity Over Time</h3>
+                <canvas id="lineChart" width="800" height="300"></canvas>
+            </div>
 
-  <!-- Line Chart -->
-  <div class="chart-container">
-    <h3 style="text-align:center">Punch Activity Over Time</h3>
-    <canvas id="lineChart" width="800" height="300"></canvas>
-  </div>
+            <div class="chart-container">
+                <h3>Punch Type Breakdown</h3>
+                <canvas id="barChart" width="800" height="300"></canvas>
+            </div>
+        </section>
+    </main>
 
-  <!-- Bar Chart -->
-  <div class="chart-container">
-    <h3 style="text-align:center">Punch Type Breakdown</h3>
-    <canvas id="barChart" width="800" height="300"></canvas>
-  </div>
-
-  <!-- Script -->
-  <script src="/static/script.js"></script>
+    <script src="/static/script.js"></script>
 </body>
+
 </html>
