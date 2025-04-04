@@ -1,5 +1,5 @@
 from flask_socketio import SocketIO
-from app.models.models import PunchData, Session, Fighter
+from app.models.models import PunchData, Session, Fighter, Combination
 import threading
 import time
 
@@ -9,6 +9,8 @@ class SocketManager:
         self.active_sessions = {}
         self.monitor_thread = None
         self.running = False
+        self.last_punch_id = 0
+        self.last_combo_id = 0
         
     def register_handlers(self):
         """Register Socket.IO event handlers"""
@@ -43,8 +45,6 @@ class SocketManager:
             
     def _monitor_active_sessions(self):
         """Monitor active sessions and emit punch data"""
-        last_punch_id = 0
-        
         while self.running:
             try:
                 # Get active sessions
@@ -56,13 +56,13 @@ class SocketManager:
                     # Get new punches since last check
                     new_punches = PunchData.query.filter(
                         PunchData.session_id == session.id,
-                        PunchData.id > last_punch_id
+                        PunchData.id > self.last_punch_id
                     ).order_by(PunchData.id).all()
                     
                     for punch in new_punches:
                         # Update last punch ID
-                        if punch.id > last_punch_id:
-                            last_punch_id = punch.id
+                        if punch.id > self.last_punch_id:
+                            self.last_punch_id = punch.id
                             
                         # Get fighter info
                         fighter = Fighter.query.get(punch.fighter_id)
@@ -76,6 +76,27 @@ class SocketManager:
                             'speed': punch.speed,
                             'power': punch.power if hasattr(punch, 'power') else None,
                             'hit_landed': True  # Placeholder - would need actual hit detection
+                        })
+                    
+                    # Also emit combination data
+                    new_combos = Combination.query.filter(
+                        Combination.session_id == session.id,
+                        Combination.id > self.last_combo_id
+                    ).order_by(Combination.id).all()
+                    
+                    for combo in new_combos:
+                        if combo.id > self.last_combo_id:
+                            self.last_combo_id = combo.id
+                            
+                        fighter = Fighter.query.get(combo.fighter_id)
+                        
+                        self.socketio.emit('combo_data', {
+                            'fighter_id': combo.fighter_id,
+                            'fighter_name': fighter.name if fighter else "Unknown",
+                            'sequence': combo.sequence,
+                            'frequency': combo.frequency,
+                            'start_time': combo.start_time,
+                            'end_time': combo.end_time
                         })
                         
             except Exception as e:

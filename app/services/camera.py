@@ -4,7 +4,7 @@ import time
 import queue
 from app.services.punch_detector import PunchDetector
 from app.utils.pose_utils import detect_pose, extract_keypoints
-from app.utils.model_loader import initialize_pose_model  # Assumed location
+from app.utils.model_loader import initialize_pose_model
 
 class VideoGet:
     def __init__(self, src=0):
@@ -44,18 +44,17 @@ class InferenceProcessor:
         threading.Thread(target=self.process, daemon=True).start()
         return self
 
-    # In the process method of InferenceProcessor
     def process(self):
         while not self.stopped:
             if not self.frame_queue.empty():
-                self.frame_count += 1
                 timestamp, frame = self.frame_queue.get()
-            
-            if self.frame_count % self.skip_frames != 0:
-                continue
-
-            pose_results = detect_pose(frame, self.model)
-            self.result_queue.put((timestamp, frame, pose_results))
+                self.frame_count += 1
+                
+                if self.frame_count % self.skip_frames == 0:
+                    pose_results = detect_pose(frame, self.model)
+                    self.result_queue.put((timestamp, frame, pose_results))
+            else:
+                time.sleep(0.001)  # Small sleep to avoid CPU spinning
 
     def stop(self):
         self.stopped = True

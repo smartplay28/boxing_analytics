@@ -15,10 +15,19 @@ class PunchDetector:
         
     def detect_punch_type(self, keypoints, person_id, timestamp):
         """Detect if a punch was thrown and classify its type."""
-        if person_id not in self.prev_positions:
-            self.prev_positions[person_id] = deque(maxlen=10)
-            self.prev_speeds[person_id] = deque(maxlen=5)
+        # Create unique IDs for left and right hands
+        right_id = f"{person_id}_right"
+        left_id = f"{person_id}_left"
+        
+        # Initialize tracking for this person if not already done
+        if right_id not in self.prev_positions:
+            self.prev_positions[right_id] = deque(maxlen=10)
+            self.prev_speeds[right_id] = deque(maxlen=5)
             self.last_punch_time[person_id] = 0
+            
+        if left_id not in self.prev_positions:
+            self.prev_positions[left_id] = deque(maxlen=10)
+            self.prev_speeds[left_id] = deque(maxlen=5)
             
         # Check cooldown
         if timestamp - self.last_punch_time.get(person_id, 0) < self.cooldown:
@@ -34,24 +43,28 @@ class PunchDetector:
             return None
             
         # Calculate punch speed and direction for both hands
-        right_punch = self._analyze_limb(keypoints_dict, 'right', person_id, timestamp)
-        left_punch = self._analyze_limb(keypoints_dict, 'left', person_id, timestamp)
+        right_punch = self._analyze_limb(keypoints_dict, 'right', right_id, timestamp)
+        left_punch = self._analyze_limb(keypoints_dict, 'left', left_id, timestamp)
         
         # Determine which punch (if any) was thrown
         if right_punch and left_punch:
             # Both hands moved - use the faster one
             if right_punch['speed'] > left_punch['speed']:
+                self.last_punch_time[person_id] = timestamp
                 return right_punch
             else:
+                self.last_punch_time[person_id] = timestamp
                 return left_punch
         elif right_punch:
+            self.last_punch_time[person_id] = timestamp
             return right_punch
         elif left_punch:
+            self.last_punch_time[person_id] = timestamp
             return left_punch
             
         return None
         
-    def _analyze_limb(self, keypoints, side, person_id, timestamp):
+    def _analyze_limb(self, keypoints, side, tracking_id, timestamp):
         """Analyze a single arm to detect punches."""
         # Get relevant keypoints
         shoulder = keypoints[f'{side}_shoulder']
@@ -64,7 +77,7 @@ class PunchDetector:
             
         # Calculate wrist position and store in history
         position = wrist[:2]  # x, y
-        position_history = self.prev_positions.setdefault(f"{person_id}_{side}", deque(maxlen=5))
+        position_history = self.prev_positions[tracking_id]
         position_history.append((position, timestamp))
         
         # Need at least 2 frames to calculate speed
@@ -81,19 +94,20 @@ class PunchDetector:
         distance = np.linalg.norm(np.array(pos2) - np.array(pos1))
         speed = distance / dt
         
-        speed_history = self.prev_speeds.setdefault(f"{person_id}_{side}", deque(maxlen=3))
+        speed_history = self.prev_speeds[tracking_id]
         speed_history.append(speed)
         
-        # Check if speed exceeds threshold
+        # Calculate average speed
         avg_speed = sum(speed_history) / len(speed_history)
+        
+        # Check if speed exceeds threshold
         if avg_speed < self.speed_threshold:
             return None
             
-        # Classify punch type
+        # Classify punch type based on arm position and movement
         punch_type = self._classify_punch(keypoints, side, position, position_history)
         
         if punch_type:
-            self.last_punch_time[person_id] = timestamp
             return {
                 'type': punch_type,
                 'timestamp': timestamp,
@@ -125,7 +139,7 @@ class PunchDetector:
         elbow = keypoints[f'{side}_elbow'][:2]
         wrist = keypoints[f'{side}_wrist'][:2]
         
-        # Elbow angle
+        # Calculate elbow angle
         elbow_angle = self._calculate_angle(shoulder, elbow, wrist)
         
         # Classify based on side, direction and angle
