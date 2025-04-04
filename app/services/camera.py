@@ -54,8 +54,7 @@ class InferenceProcessor:
             if self.frame_count % self.skip_frames != 0:
                 continue
 
-            # Fix parameter order
-            pose_results = detect_pose(frame, self.model)  # Swap parameters
+            pose_results = detect_pose(frame, self.model)
             self.result_queue.put((timestamp, frame, pose_results))
 
     def stop(self):

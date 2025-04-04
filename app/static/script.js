@@ -25,7 +25,7 @@ const punchTypes = [
   // 🚫 Removed fake data simulation here
   
   // ✅ Real-time Socket.IO Connection
-  const socket = io('http://localhost:5000');
+  const socket = io(window.location.origin);
   
   socket.emit('get_updates');
   

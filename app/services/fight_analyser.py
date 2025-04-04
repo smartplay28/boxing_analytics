@@ -107,5 +107,13 @@ class FightAnalyzer:
         for fighter_id, combo in self.active_sessions[session_id]['current_combo'].items():
             if combo:
                 combo_str = "-".join([pt for pt, _ in combo])
-                db.session.add(Combination(fighter_id=fighter_id, combo=combo_str, timestamp=datetime.utcnow()))
+            # Fixed parameter names and added missing parameters
+                db.session.add(Combination(
+                    session_id=session_id,
+                    fighter_id=fighter_id,
+                    sequence=combo_str,  # Changed from combo to sequence
+                    start_time=combo[0][1],  # First punch timestamp
+                    end_time=combo[-1][1],  # Last punch timestamp
+                    frequency=1
+                ))
         db.session.commit()
