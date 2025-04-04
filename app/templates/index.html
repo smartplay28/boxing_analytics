@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Punch Detection Dashboard</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
+  <style>
+    body {
+      font-family: sans-serif;
+      padding: 20px;
+    }
+    .stats {
+      display: flex;
+      justify-content: space-around;
+      margin-bottom: 20px;
+    }
+    .chart-container {
+      width: 100%;
+      max-width: 800px;
+      margin: auto;
+    }
+  </style>
+</head>
+<body>
+
+  <h1>Real-Time Boxing Punch Dashboard</h1>
+
+  <div class="stats">
+    <div>
+      <h3>Player 1</h3>
+      <p>Total Punches: <span id="totalPunches1">0</span></p>
+      <p>Accuracy: <span id="accuracy1">0%</span></p>
+    </div>
+    <div>
+      <h3>Player 2</h3>
+      <p>Total Punches: <span id="totalPunches2">0</span></p>
+      <p>Accuracy: <span id="accuracy2">0%</span></p>
+    </div>
+    <div>
+      <h3>Last Punch</h3>
+      <p id="lastPunch">None</p>
+    </div>
+  </div>
+
+  <div class="chart-container">
+    <canvas id="lineChart" width="800" height="300"></canvas>
+  </div>
+
+  <div class="chart-container">
+    <canvas id="barChart" width="800" height="300"></canvas>
+  </div>
+
+  <script src="script.js"></script>
+</body>
+</html>
