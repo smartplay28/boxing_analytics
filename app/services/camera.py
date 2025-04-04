@@ -44,18 +44,19 @@ class InferenceProcessor:
         threading.Thread(target=self.process, daemon=True).start()
         return self
 
+    # In the process method of InferenceProcessor
     def process(self):
         while not self.stopped:
             if not self.frame_queue.empty():
                 self.frame_count += 1
                 timestamp, frame = self.frame_queue.get()
-                
-                if self.frame_count % self.skip_frames != 0:
-                    continue
+            
+            if self.frame_count % self.skip_frames != 0:
+                continue
 
-                # Run pose detection
-                pose_results = detect_pose(self.model, frame)
-                self.result_queue.put((timestamp, frame, pose_results))
+            # Fix parameter order
+            pose_results = detect_pose(frame, self.model)  # Swap parameters
+            self.result_queue.put((timestamp, frame, pose_results))
 
     def stop(self):
         self.stopped = True

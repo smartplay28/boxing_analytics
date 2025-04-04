@@ -1,7 +1,7 @@
 from datetime import datetime
 from app.models.models import db, Session, Fighter, PunchData, Combination
 from app.services.punch_detector import PunchDetector
-from app.services.single_camera import SingleCameraRunner  # Updated import
+from app.services.camera import SingleCameraRunner  # Fixed import
 
 class FightAnalyzer:
     def __init__(self, camera_id=0):
@@ -86,14 +86,22 @@ class FightAnalyzer:
         current_combo = self.active_sessions[session_id]['current_combo'][fighter_id]
         current_combo.append((punch_type, timestamp))
 
-        # Example: Save combo if 3 or more punches within 3 seconds
+    # Example: Save combo if 3 or more punches within 3 seconds
         if len(current_combo) >= 3:
-            time_diff = (current_combo[-1][1] - current_combo[0][1]).total_seconds()
+            time_diff = current_combo[-1][1] - current_combo[0][1]  # Fixed timestamp comparison
             if time_diff <= 3:
                 combo_str = "-".join([pt for pt, _ in current_combo])
-                db.session.add(Combination(fighter_id=fighter_id, combo=combo_str, timestamp=timestamp))
-                db.session.commit()
-                current_combo.clear()
+            # Fix parameter names
+            db.session.add(Combination(
+                session_id=session_id,
+                fighter_id=fighter_id,
+                sequence=combo_str,  # Changed from combo to sequence
+                start_time=current_combo[0][1],  # Add missing parameters
+                end_time=current_combo[-1][1],
+                frequency=1
+            ))
+            db.session.commit()
+            current_combo.clear()
 
     def _finalize_combinations(self, session_id):
         for fighter_id, combo in self.active_sessions[session_id]['current_combo'].items():

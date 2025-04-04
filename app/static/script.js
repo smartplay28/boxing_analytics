@@ -32,13 +32,13 @@ const punchTypes = [
   // ✅ Handle punch data from backend
   socket.on('punch_data', (data) => {
     const punch = data.punch_type;
-    const playerId = data.player_id || 1;
+    const playerId = data.fighter_id % 2 === 0 ? 2 : 1; 
     const player = playerId === 1 ? player1 : player2;
   
     // Update stats
     player.punches[punch]++;
     player.total++;
-    if (data.hit_landed) player.hits++;
+    if (data.hit_landed !== false) player.hits++; 
   
     // Update UI
     updateStats(player1, "1");

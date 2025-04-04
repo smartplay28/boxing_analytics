@@ -1,8 +1,9 @@
 from flask import Flask
-from config import Config  # Import the actual Config class
+from app.config import Config  # Fixed import path
 import os
 
 def create_app(config_object=Config):
+    # Rest remains the same
     app = Flask(__name__)
     app.config.from_object(config_object)
 
