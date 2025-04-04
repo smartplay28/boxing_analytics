@@ -1,125 +1,159 @@
+/* Base Styles */
 body {
     font-family: 'Arial', sans-serif;
     margin: 0;
     padding: 0;
     background-color: #111;
     color: #fff;
-}
-
-.dashboard {
+  }
+  
+  /* Grid Dashboard */
+  .dashboard {
     display: grid;
-    grid-template-columns: 1fr 3fr 1fr;
+    grid-template-columns: 1fr 2fr 1fr;
     grid-template-rows: auto 1fr 1fr;
     gap: 10px;
     height: 100vh;
     padding: 10px;
     box-sizing: border-box;
-}
-
-.timer-container {
+  }
+  
+  /* Timer Section */
+  .timer-container {
     grid-column: 1 / 4;
     display: flex;
     justify-content: center;
     align-items: center;
     background: #222;
-    border-radius: 5px;
-    padding: 10px;
-}
-
-.timer {
+    border-radius: 10px;
+    padding: 12px;
+    margin-bottom: 10px;
+  }
+  
+  .timer {
     font-size: 2rem;
     font-weight: bold;
-    color: #fff;
-}
-
-.round-indicator {
+    color: #0af;
+  }
+  
+  .round-indicator {
     font-size: 1.2rem;
     margin-right: 20px;
-    color: #ddd;
-}
-
-.video-feed {
+    color: #ccc;
+  }
+  
+  /* Video Feed */
+  .video-feed {
     grid-column: 2;
     grid-row: 2 / 4;
     background: #222;
-    border-radius: 5px;
+    border-radius: 10px;
     overflow: hidden;
     position: relative;
-}
-
-.stats-panel {
+  }
+  
+  /* Fighter Stats Panel */
+  .stats-panel {
     background: #222;
-    border-radius: 5px;
+    border-radius: 10px;
     padding: 15px;
-    overflow: auto;
-}
-
-.stats-panel h3 {
+    overflow-y: auto;
+    max-height: 100%;
+  }
+  
+  .stats-panel h3 {
     margin-top: 0;
     color: #0af;
-}
-
-.stat-row {
+    font-size: 1.4rem;
+  }
+  
+  .stat-row {
     display: flex;
     justify-content: space-between;
-    margin-bottom: 5px;
-}
-
-.punch-count {
+    margin-bottom: 8px;
+  }
+  
+  .punch-count {
     font-size: 1.5rem;
     font-weight: bold;
-}
-
-.punch-bar {
+  }
+  
+  .punch-bar {
     height: 20px;
-    background: linear-gradient(90deg, #0af, #04a);
-    border-radius: 3px;
+    background: linear-gradient(90deg, #0af, #06c);
+    border-radius: 4px;
     transition: width 0.3s ease;
-}
-
-.fighter-stats {
+  }
+  
+  .fighter-stats {
     display: flex;
-    justify-content: space-between;
-}
-
-.fighter {
-    text-align: center;
+    justify-content: space-around;
+    gap: 20px;
+  }
+  
+  .fighter {
     flex: 1;
-}
-
-.fighter-name {
+    text-align: center;
+  }
+  
+  .fighter-name {
     font-weight: bold;
     font-size: 1.2rem;
-}
-
-.status-label {
-    position: absolute;
+    margin-bottom: 5px;
+  }
+  
+  /* Live Status Label */
+  .status-label {
+    position: fixed;
     top: 20px;
     left: 20px;
-    background: rgba(255,0,0,0.7);
-    padding: 5px 10px;
-    border-radius: 3px;
+    background: rgba(255, 0, 0, 0.8);
+    padding: 6px 12px;
+    border-radius: 4px;
     font-weight: bold;
-}
-
-.controls {
+    z-index: 99;
+    font-size: 0.9rem;
+  }
+  
+  /* Controls */
+  .controls {
     position: absolute;
     bottom: 20px;
     right: 20px;
     display: flex;
     gap: 10px;
-}
-
-.button {
+  }
+  
+  .button {
     background: #0af;
     border: none;
     color: white;
     padding: 10px 15px;
-    border-radius: 5px;
+    border-radius: 6px;
     cursor: pointer;
     font-weight: bold;
-}
-
-.button:hover {
-    background: #08d;
-}
+    transition: background 0.3s ease;
+  }
+  
+  .button:hover {
+    background: #09d;
+  }
+  
+  /* Responsive Adjustments */
+  @media (max-width: 768px) {
+    .dashboard {
+      display: flex;
+      flex-direction: column;
+    }
+  
+    .fighter-stats {
+      flex-direction: column;
+    }
+  
+    .controls {
+      position: static;
+      justify-content: center;
+      margin-top: 20px;
+    }
+  }
+  

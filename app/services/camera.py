@@ -1,14 +1,16 @@
+# app/services/camera.py
+
 import cv2
 import threading
 import time
 import queue
 from app.services.punch_detector import PunchDetector
-from app.utils.pose_utils import detect_pose, extract_keypoints
+from app.utils.pose_utils import extract_keypoints
 from app.utils.model_loader import initialize_pose_model
 
 class VideoGet:
     def __init__(self, src=0):
-        self.stream = cv2.VideoCapture(src)
+        self.stream = cv2.VideoCapture(src, cv2.CAP_DSHOW)
         self.stream.set(cv2.CAP_PROP_FRAME_WIDTH, 480)
         self.stream.set(cv2.CAP_PROP_FRAME_HEIGHT, 360)
         self.stream.set(cv2.CAP_PROP_FPS, 15)
@@ -30,7 +32,6 @@ class VideoGet:
         self.stopped = True
         self.stream.release()
 
-
 class InferenceProcessor:
     def __init__(self, frame_queue, result_queue, model, skip_frames=2):
         self.frame_queue = frame_queue
@@ -49,16 +50,15 @@ class InferenceProcessor:
             if not self.frame_queue.empty():
                 timestamp, frame = self.frame_queue.get()
                 self.frame_count += 1
-                
+
                 if self.frame_count % self.skip_frames == 0:
-                    pose_results = detect_pose(frame, self.model)
-                    self.result_queue.put((timestamp, frame, pose_results))
+                    results = self.model(frame, verbose=False)[0]
+                    self.result_queue.put((timestamp, frame, results))
             else:
-                time.sleep(0.001)  # Small sleep to avoid CPU spinning
+                time.sleep(0.001)
 
     def stop(self):
         self.stopped = True
-
 
 class SingleCameraRunner:
     def __init__(self, camera_id=0):
@@ -84,8 +84,8 @@ class SingleCameraRunner:
 
     def get_latest_result(self):
         if not self.result_queue.empty():
-            timestamp, frame, pose = self.result_queue.get()
-            keypoints = extract_keypoints(pose) if pose else []
+            timestamp, frame, results = self.result_queue.get()
+            keypoints = extract_keypoints(results) if results else []
             return timestamp, frame, keypoints
         return None
 
